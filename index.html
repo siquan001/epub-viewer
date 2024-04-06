@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>epub viewer</title>
+    <link rel="stylesheet" href="./epub.css">
+</head>
+<body>
+    <script src="./zip.min.js"></script>
+    <script src="./epub.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
+    <div class="upload" style="margin: 20px;">
+        <h2>EPUB阅读器</h2>
+        <input type="file"/>
+        <h3>之前上传的：</h3>
+        <ul></ul>
+        <button>清空</button>
+    </div>
+    <script>
+        if(!localStorage.epubbokks){
+            localStorage.epubbokks = '[]';
+        }
+        localforage.config({
+            name: 'epub',
+            version: 1.0, // 版本号
+            storeName: 'epub', // 存储空间名称
+        });
+        let epubbokks = JSON.parse(localStorage.epubbokks);
+        for(let i = 0; i < epubbokks.length; i++){
+            let li = document.createElement('li');
+            li.innerText = epubbokks[i].name;
+            li.addEventListener('click', function() {
+                localforage.getItem(epubbokks[i].file).then(function(data){
+                    document.querySelector('.upload').remove();
+                    epubjs.show(data);
+                });
+            })
+            document.querySelector('.upload ul').appendChild(li);
+        }
+        document.querySelector('input').addEventListener('change', function(e) {
+            let file = e.target.files[0];
+            var id=Math.random().toString(36).substr(2, 9)+Date.now().toString(36);
+            localforage.setItem(id, file).then(function(data){
+                epubbokks.push({
+                    name: file.name,
+                    file: id
+                })
+                localStorage.epubbokks = JSON.stringify(epubbokks);
+            });
+            epubjs.show(file);
+            document.querySelector('.upload').remove();
+        });
+        
+        document.querySelector('button').addEventListener('click', function() {
+            localStorage.epubbokks = '[]';
+            localforage.clear();
+            location.reload();
+        })
+    </script>
+</body>
+</html>
