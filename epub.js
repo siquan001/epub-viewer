@@ -320,7 +320,7 @@ var epubjs = {
         var reader = new zip.ZipReader(readerm);
         var entries = await reader.getEntries()
         var contentOpf=await epubjs.getContentOpf(entries);
-        var toc=await epubjs.getToc(entries);
+        var toc=await epubjs.getToc(entries,contentOpf.rootfile);
         contentOpf.toc=toc;
         contentOpf.texts=epubjs.getTexts(entries);
         var dataCache={};
@@ -342,7 +342,17 @@ var epubjs = {
         return contentOpf;
     },
     getContentOpf:async function(entries){
-        var xml=await epubjs.getFile(entries,'content.opf').getData(new zip.TextWriter());
+        var root=await epubjs.getFile(entries,'META-INF/container.xml').getData(new zip.TextWriter());
+        console.log(root);
+        var rootfile=(function(){
+            var domparser=new DOMParser();
+            var doc=domparser.parseFromString(root,'text/html');
+            doc=doc.documentElement;
+            var rootf=doc.querySelector('rootfile');
+            var r=rootf.getAttribute('full-path')
+            return r;
+        })();
+        var xml=await epubjs.getFile(entries,rootfile).getData(new zip.TextWriter());
         var domparser=new DOMParser();
         var doc=domparser.parseFromString(xml,'text/html');
         doc=doc.documentElement;
@@ -351,9 +361,14 @@ var epubjs = {
         var date=doc.querySelector('dc\\:date').textContent;
         var publisher=doc.querySelector('dc\\:publisher').textContent;
         var lang=doc.querySelector('dc\\:language').textContent;
-        var cover=doc.querySelector('#cover').getAttribute('href');
-        cover=URL.createObjectURL(await epubjs.getFile(entries,cover).getData(new zip.BlobWriter()));
-        var titlepage=doc.querySelector('#titlepage').getAttribute('href');
+        try {
+            var cover=doc.querySelector('#cover').getAttribute('href');
+            cover=URL.createObjectURL(await epubjs.getFile(entries,cover).getData(new zip.BlobWriter()));
+            var titlepage=doc.querySelector('#titlepage').getAttribute('href');
+        } catch (error) {
+            
+        }
+        
         return {
             title:title,
             writer:writer,
@@ -361,12 +376,13 @@ var epubjs = {
             publisher:publisher,
             lang:lang,
             cover:cover,
-            titlepage:titlepage
+            titlepage:titlepage,
+            rootfile:rootfile.replace('content.opf','')
         };
     },
-    getToc:async function(entries){
+    getToc:async function(entries,root){
         var xml=await entries.find(function(entry){
-            return entry.filename=='toc.ncx';
+            return entry.filename==root+'toc.ncx';
         }).getData(new zip.TextWriter());
         var doc=new DOMParser().parseFromString(xml,'text/html');
         var navmap=doc.querySelector('navmap');
